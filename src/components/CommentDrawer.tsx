@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Track, TrackComment, ThemeMode } from '../types';
-import { X, Heart, Send, MessageCircle, Clock, Sparkles } from 'lucide-react';
+import { X, Heart, Send, MessageCircle, Clock, Sparkles, Database } from 'lucide-react';
+import { FirestoreDataService, auth } from '../services/firebase';
 
 interface CommentDrawerProps {
   track: Track;
@@ -19,7 +20,28 @@ export const CommentDrawer: React.FC<CommentDrawerProps> = ({
 }) => {
   const [inputText, setInputText] = useState('');
   const [includeTimestamp, setIncludeTimestamp] = useState(true);
+  const [firestoreComments, setFirestoreComments] = useState<TrackComment[]>([]);
   const isDark = themeMode === 'dark';
+
+  // Real-time sync with Cloud Firestore comments
+  useEffect(() => {
+    try {
+      const unsub = FirestoreDataService.subscribeTrackComments(track.id, (comments) => {
+        if (comments && comments.length > 0) {
+          setFirestoreComments(comments);
+        }
+      });
+      return () => unsub();
+    } catch (e) {
+      console.warn('Firestore comments subscription initialized locally:', e);
+    }
+  }, [track.id]);
+
+  // Combine initial mock comments with any Firestore comments
+  const combinedComments = [
+    ...firestoreComments,
+    ...track.comments.filter((tc) => !firestoreComments.some((fc) => fc.id === tc.id)),
+  ];
 
   const formatSecToTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -29,14 +51,38 @@ export const CommentDrawer: React.FC<CommentDrawerProps> = ({
 
   const currentFormattedTime = formatSecToTime(currentPlaybackTime);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!inputText.trim()) return;
 
+    const timestampTag = includeTimestamp ? currentFormattedTime : '0:00';
+    const content = inputText.trim();
+
     onAddComment({
-      content: inputText.trim(),
-      timestamp: includeTimestamp ? currentFormattedTime : '0:00',
+      content,
+      timestamp: timestampTag,
     });
+
+    // If user is authenticated in Firebase, save to Firestore
+    if (auth.currentUser) {
+      const commentObj: TrackComment = {
+        id: `c_${Date.now()}`,
+        trackId: track.id,
+        userId: auth.currentUser.uid,
+        userName: auth.currentUser.displayName || '10대 음악러',
+        userAvatar: auth.currentUser.photoURL || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
+        content,
+        timestamp: timestampTag,
+        timeAgo: '방금 전',
+        likeCount: 0,
+        isLiked: false,
+      };
+      try {
+        await FirestoreDataService.addTrackComment(track.id, commentObj);
+      } catch (err) {
+        console.warn('Firestore comment write fallback:', err);
+      }
+    }
 
     setInputText('');
   };
@@ -56,31 +102,37 @@ export const CommentDrawer: React.FC<CommentDrawerProps> = ({
           <div className="flex items-center gap-2">
             <MessageCircle className="w-5 h-5 text-rose-500" />
             <h3 className="font-bold text-sm sm:text-base">
-              댓글 ({track.comments.length}개)
+              댓글 ({combinedComments.length}개)
             </h3>
             <span className="text-xs text-neutral-400 truncate max-w-[160px]">
               · {track.title}
             </span>
           </div>
-          <button
-            id="btn-close-comments"
-            onClick={onClose}
-            className={`p-2 rounded-full transition-colors ${
-              isDark ? 'hover:bg-neutral-800 text-neutral-400' : 'hover:bg-neutral-100 text-neutral-600'
-            }`}
-          >
-            <X className="w-5 h-5" />
-          </button>
+          <div className="flex items-center gap-1.5">
+            <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold bg-emerald-500/15 text-emerald-400 flex items-center gap-1">
+              <Database className="w-2.5 h-2.5" />
+              Firestore 실시간 연동
+            </span>
+            <button
+              id="btn-close-comments"
+              onClick={onClose}
+              className={`p-2 rounded-full transition-colors ${
+                isDark ? 'hover:bg-neutral-800 text-neutral-400' : 'hover:bg-neutral-100 text-neutral-600'
+              }`}
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
         {/* Comment list */}
         <div className="flex-1 overflow-y-auto p-4 space-y-4 no-scrollbar">
-          {track.comments.length === 0 ? (
+          {combinedComments.length === 0 ? (
             <div className="text-center py-12 text-neutral-400 text-sm">
               첫 번째 댓글을 남겨보세요! ✨
             </div>
           ) : (
-            track.comments.map((comment) => (
+            combinedComments.map((comment) => (
               <div key={comment.id} className="flex items-start gap-3 group">
                 <img
                   src={comment.userAvatar}

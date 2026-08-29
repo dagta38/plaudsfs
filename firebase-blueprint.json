@@ -1,0 +1,193 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "User profile with teen music taste preferences, stats, and saved items",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique user ID matching Firebase Auth UID"
+        },
+        "email": {
+          "type": "string",
+          "description": "User email address"
+        },
+        "nickname": {
+          "type": "string",
+          "description": "Display nickname of the user",
+          "maxLength": 50
+        },
+        "handle": {
+          "type": "string",
+          "description": "Unique user handle (e.g. @vibe_teen)",
+          "maxLength": 40
+        },
+        "avatar": {
+          "type": "string",
+          "description": "Avatar image URL",
+          "maxLength": 500
+        },
+        "bio": {
+          "type": "string",
+          "description": "Short bio or music mood",
+          "maxLength": 200
+        },
+        "ageBadge": {
+          "type": "string",
+          "description": "Age badge (e.g. 17세 High, 19세 Indie)",
+          "maxLength": 30
+        },
+        "favoriteGenres": {
+          "type": "array",
+          "description": "List of favorite genres with affinity score"
+        },
+        "likedTrackIds": {
+          "type": "array",
+          "description": "List of liked track IDs"
+        },
+        "savedTrackIds": {
+          "type": "array",
+          "description": "List of bookmarked track IDs"
+        },
+        "followedArtistIds": {
+          "type": "array",
+          "description": "List of followed artist IDs"
+        },
+        "totalListenTimeSec": {
+          "type": "number",
+          "description": "Total listen time in seconds"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Creation timestamp"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Last updated timestamp"
+        }
+      },
+      "required": ["id", "nickname", "handle"]
+    },
+    "UserInteraction": {
+      "title": "UserInteraction",
+      "description": "Shorts listening telemetry and algorithmic interaction",
+      "type": "object",
+      "properties": {
+        "trackId": {
+          "type": "string",
+          "description": "ID of the played track"
+        },
+        "userId": {
+          "type": "string",
+          "description": "Owner user UID"
+        },
+        "watchDurationSec": {
+          "type": "number",
+          "description": "Watch time in seconds"
+        },
+        "completedRate": {
+          "type": "number",
+          "description": "Completion rate ratio"
+        },
+        "loopCount": {
+          "type": "number",
+          "description": "Number of loops completed"
+        },
+        "liked": {
+          "type": "boolean",
+          "description": "Whether user liked the track during session"
+        },
+        "saved": {
+          "type": "boolean",
+          "description": "Whether user saved the track during session"
+        },
+        "shared": {
+          "type": "boolean",
+          "description": "Whether user shared the track"
+        },
+        "skippedEarly": {
+          "type": "boolean",
+          "description": "Whether user skipped before 3.5s"
+        },
+        "featArtistClicked": {
+          "type": "boolean",
+          "description": "Whether user tapped the featuring artist pill"
+        },
+        "timestamp": {
+          "type": "number",
+          "description": "Unix timestamp in ms"
+        },
+        "genreAffinities": {
+          "type": "array",
+          "description": "Genres of the track for affinity weighting"
+        }
+      },
+      "required": ["trackId", "userId", "watchDurationSec"]
+    },
+    "TrackComment": {
+      "title": "TrackComment",
+      "description": "Real-time user comments on a specific music hook",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Comment ID"
+        },
+        "trackId": {
+          "type": "string",
+          "description": "Parent track ID"
+        },
+        "userId": {
+          "type": "string",
+          "description": "Author UID"
+        },
+        "userName": {
+          "type": "string",
+          "description": "Author display nickname",
+          "maxLength": 50
+        },
+        "userAvatar": {
+          "type": "string",
+          "description": "Author avatar URL",
+          "maxLength": 500
+        },
+        "content": {
+          "type": "string",
+          "description": "Comment content text",
+          "maxLength": 300
+        },
+        "timestamp": {
+          "type": "string",
+          "description": "Playback timestamp tag (e.g. 0:14)",
+          "maxLength": 20
+        },
+        "createdAt": {
+          "type": "number",
+          "description": "Creation timestamp in ms"
+        },
+        "likeCount": {
+          "type": "number",
+          "description": "Number of likes on comment"
+        }
+      },
+      "required": ["trackId", "userId", "userName", "content"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "UserProfile",
+      "description": "Stores individual user account profile and taste preferences"
+    },
+    "/users/{userId}/interactions/{interactionId}": {
+      "schema": "UserInteraction",
+      "description": "Stores user watch history and telemetry for recommendation weights"
+    },
+    "/tracks/{trackId}/comments/{commentId}": {
+      "schema": "TrackComment",
+      "description": "Stores public comments for music tracks"
+    }
+  }
+}

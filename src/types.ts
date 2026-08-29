@@ -73,12 +73,14 @@ export interface TrackSummary {
 
 export interface TrackComment {
   id: string;
+  trackId?: string;
   userId: string;
   userName: string;
   userAvatar: string;
   content: string;
   timestamp: string; // e.g. "0:14"
   timeAgo: string;
+  createdAt?: number;
   likeCount: number;
   isLiked?: boolean;
 }

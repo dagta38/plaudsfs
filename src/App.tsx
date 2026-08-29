@@ -15,6 +15,7 @@ import {
 import { MOCK_TRACKS, MOCK_USER_ACCOUNTS } from './data/mockTracks';
 import { RecommendationEngine } from './services/recommendationEngine';
 import { FirebaseTodoService } from './services/firebaseTodoService';
+import { FirebaseAuthService, FirestoreDataService } from './services/firebase';
 import { audioEngine } from './services/audioEngine';
 
 import { HeaderNav } from './components/HeaderNav';
@@ -61,6 +62,45 @@ export default function App() {
       document.body.className = 'bg-neutral-100 text-neutral-900 font-sans antialiased overflow-hidden select-none';
     }
   }, [themeMode]);
+
+  // Firebase Auth state listener
+  useEffect(() => {
+    const unsubscribe = FirebaseAuthService.onAuthChange(async (fbUser) => {
+      if (fbUser) {
+        try {
+          const profile = await FirestoreDataService.getUserProfile(fbUser.uid);
+          if (profile) {
+            setCurrentUser(profile);
+          } else {
+            const newProfile: UserProfile = {
+              id: fbUser.uid,
+              nickname: fbUser.displayName || '10대 음악러',
+              handle: `@${(fbUser.displayName || 'teen').toLowerCase().replace(/\s+/g, '')}_${fbUser.uid.slice(0, 4)}`,
+              avatar: fbUser.photoURL || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
+              bio: 'Firebase로 연결된 실시간 10대 음악 탐색기 🎧',
+              ageBadge: '18세 High',
+              favoriteGenres: [
+                { genre: 'K-Pop', score: 88 },
+                { genre: 'Pop', score: 85 },
+                { genre: '힙합', score: 75 },
+              ],
+              likedTrackIds: [],
+              savedTrackIds: [],
+              viewHistory: [],
+              followedArtistIds: [],
+              totalListenTimeSec: 0,
+            };
+            await FirestoreDataService.saveUserProfile(newProfile);
+            setCurrentUser(newProfile);
+          }
+        } catch (e) {
+          console.warn('Firebase user sync fallback:', e);
+        }
+      }
+    });
+
+    return () => unsubscribe();
+  }, []);
 
   // Compute feed list according to current tab & recommendation engine
   const activeFeedTracks = useMemo(() => {
@@ -138,7 +178,7 @@ export default function App() {
       // Recalculate genre affinity score
       const reCalced = RecommendationEngine.updateUserGenreAffinity(updatedUser, track, interaction);
 
-      // TODO: Firebase Firestore 동기화 호출
+      // Cloud Firestore synchronization
       FirebaseTodoService.recordInteractionToFirestore(reCalced.id, interaction);
       FirebaseTodoService.syncUserProfileToFirestore(reCalced);
 
@@ -177,7 +217,7 @@ export default function App() {
       )
     );
 
-    // TODO: Cloud Firestore 좋아요 컬렉션 동기화
+    // Cloud Firestore synchronization
     FirebaseTodoService.toggleLikeInFirestore(currentUser.id, trackId, !isCurrentlyLiked);
   };
 
@@ -185,12 +225,16 @@ export default function App() {
   const handleSaveTrack = (trackId: string) => {
     const isCurrentlySaved = currentUser.savedTrackIds.includes(trackId);
 
-    setCurrentUser((prev) => ({
-      ...prev,
-      savedTrackIds: isCurrentlySaved
-        ? prev.savedTrackIds.filter((id) => id !== trackId)
-        : [...prev.savedTrackIds, trackId],
-    }));
+    setCurrentUser((prev) => {
+      const updated = {
+        ...prev,
+        savedTrackIds: isCurrentlySaved
+          ? prev.savedTrackIds.filter((id) => id !== trackId)
+          : [...prev.savedTrackIds, trackId],
+      };
+      FirebaseTodoService.syncUserProfileToFirestore(updated);
+      return updated;
+    });
 
     setTracks((prev) =>
       prev.map((t) =>
@@ -203,12 +247,14 @@ export default function App() {
   const handleToggleFollowArtist = (artistId: string) => {
     setCurrentUser((prev) => {
       const isFollowed = prev.followedArtistIds.includes(artistId);
-      return {
+      const updated = {
         ...prev,
         followedArtistIds: isFollowed
           ? prev.followedArtistIds.filter((id) => id !== artistId)
           : [...prev.followedArtistIds, artistId],
       };
+      FirebaseTodoService.syncUserProfileToFirestore(updated);
+      return updated;
     });
   };
 
@@ -354,7 +400,7 @@ export default function App() {
               ]);
             }
           }}
-          onPlayPreviewTrack={(title) => {
+          onPlayPreviewTrack={(_title) => {
             audioEngine.play('preview', 'kpop_dance', 128, 15, 1.0);
           }}
         />
@@ -401,7 +447,7 @@ export default function App() {
         />
       )}
 
-      {/* MODAL 5: Teen Account Switcher & Firebase Auth TODO Test */}
+      {/* MODAL 5: Teen Account Switcher & Firebase Auth */}
       {showAccountModal && (
         <AccountSwitcherModal
           currentUser={currentUser}

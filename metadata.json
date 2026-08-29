@@ -1,0 +1,6 @@
+{
+  "name": "바이브스팟 (VibeSpot) - 숏폼 음악 & 피쳐링 디스커버리",
+  "description": "10대 맞춤형 숏폼 음악 탐색 플랫폼: 릴스/쇼츠 스타일 음원 스와이프, 피쳐링 아티스트 & 추천 앨범 심층 탐색, 시청 및 좋아요 기반 맞춤 알고리즘 피드",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
